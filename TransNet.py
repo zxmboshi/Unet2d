@@ -1,9 +1,9 @@
-import torch 
-import torch.nn as nn 
-from networks.blocks import ConvBlock, TransformerBlock, TransformerBlockSingle
+import mindspore 
+import mindspore.nn as nn 
+from .blocks import ConvBlock, TransformerBlock, TransformerBlockSingle
 
 
-class MainNet(nn.Module):
+class MainNet(nn.Cell):
     def __init__(self, enc_nc=[16, 32, 32], dec_nc=[32, 32, 32, 16], patch_size=4, num_heads=4):
         super().__init__()
         # enc conv 
@@ -36,7 +36,7 @@ class MainNet(nn.Module):
         self.conv_dec11 = ConvBlock(enc_nc[0] + dec_nc[2] + dec_nc[2], dec_nc[3], 3, 1)
         self.conv_dec12 = ConvBlock(dec_nc[3], 3, 3, 1)
 
-    def forward(self, x):
+    def construct(self, x):
         x11 = self.conv_enc11(x)
         x12 = self.conv_enc12(x11)
         x20 = self.pool(x12)
@@ -46,33 +46,33 @@ class MainNet(nn.Module):
         x22 = self.conv_enc22(s21)
         x30 = self.pool(x22)
 
-        x31 = self.conv_enc31(torch.cat([d21, x30], dim=1))
+        x31 = self.conv_enc31(mindspore.cat([d21, x30], dim=1))
         s31, d31 = self.tf_enc31(x31)
         x32 = self.conv_enc32(s31)
         x40 = self.pool(x32)
 
-        x41 = self.conv_dec41(torch.cat([d31, x40], dim=1))
+        x41 = self.conv_dec41(mindspore.cat([d31, x40], dim=1))
         s41, u41 = self.tf_dec41(x41)
         x42 = self.conv_dec42(s41)
         x42 = self.up(x42)
 
-        xx31 = self.conv_dec31(torch.cat([x32, u41, x42], dim=1))
+        xx31 = self.conv_dec31(mindspore.cat([x32, u41, x42], dim=1))
         ss31, u31 = self.tf_dec31(xx31)
         xx32 = self.conv_dec32(ss31)
         xx32 = self.up(xx32)
 
-        xx21 = self.conv_dec21(torch.cat([x22, u31, xx32], dim=1))
+        xx21 = self.conv_dec21(mindspore.cat([x22, u31, xx32], dim=1))
         ss21, u21 = self.tf_dec21(xx21)
         xx22 = self.conv_dec22(ss21)
         xx22 = self.up(xx22)
 
-        xx11 = self.conv_dec11(torch.cat([x12, u21, xx22], dim=1))
+        xx11 = self.conv_dec11(mindspore.cat([x12, u21, xx22], dim=1))
         flow = self.conv_dec12(xx11)
 
         return flow 
 
 
-class MainNetWithoutTF(nn.Module): 
+class MainNetWithoutTF(nn.Cell): 
     def __init__(self, enc_nc=[16, 32, 32], dec_nc=[32, 32, 32, 16], patch_size=4, num_heads=4):
         super().__init__()
         # enc conv 
@@ -101,7 +101,7 @@ class MainNetWithoutTF(nn.Module):
         self.conv_dec11 = ConvBlock(enc_nc[0] + dec_nc[2], dec_nc[3], 3, 1)
         self.conv_dec12 = ConvBlock(dec_nc[3], 3, 3, 1)
 
-    def forward(self, x):
+    def construct(self, x):
         x11 = self.conv_enc11(x)
         x12 = self.conv_enc12(x11)
         x20 = self.pool(x12)
@@ -118,15 +118,15 @@ class MainNetWithoutTF(nn.Module):
         x42 = self.conv_dec42(x41)
         x42 = self.up(x42)
 
-        xx31 = self.conv_dec31(torch.cat([x32, x42], dim=1))
+        xx31 = self.conv_dec31(mindspore.cat([x32, x42], dim=1))
         xx32 = self.conv_dec32(xx31)
         xx32 = self.up(xx32)
 
-        xx21 = self.conv_dec21(torch.cat([x22, xx32], dim=1))
+        xx21 = self.conv_dec21(mindspore.cat([x22, xx32], dim=1))
         xx22 = self.conv_dec22(xx21)
         xx22 = self.up(xx22)
 
-        xx11 = self.conv_dec11(torch.cat([x12, xx22], dim=1))
+        xx11 = self.conv_dec11(mindspore.cat([x12, xx22], dim=1))
         flow = self.conv_dec12(xx11)
 
         return flow 
@@ -165,7 +165,7 @@ class MainNetWithSingleTF(nn.Module):
         self.conv_dec11 = ConvBlock(enc_nc[0] + dec_nc[2], dec_nc[3], 3, 1)
         self.conv_dec12 = ConvBlock(dec_nc[3], 3, 3, 1)
 
-    def forward(self, x):
+    def construct(self, x):
         x11 = self.conv_enc11(x)
         x12 = self.conv_enc12(x11)
         x20 = self.pool(x12)
@@ -185,26 +185,17 @@ class MainNetWithSingleTF(nn.Module):
         x42 = self.conv_dec42(s41)
         x42 = self.up(x42)
 
-        xx31 = self.conv_dec31(torch.cat([x32, x42], dim=1))
+        xx31 = self.conv_dec31(mindspore.cat([x32, x42], dim=1))
         ss31 = self.tf_dec31(xx31)
         xx32 = self.conv_dec32(ss31)
         xx32 = self.up(xx32)
 
-        xx21 = self.conv_dec21(torch.cat([x22, xx32], dim=1))
+        xx21 = self.conv_dec21(mindspore.cat([x22, xx32], dim=1))
         ss21 = self.tf_dec21(xx21)
         xx22 = self.conv_dec22(ss21)
         xx22 = self.up(xx22)
 
-        xx11 = self.conv_dec11(torch.cat([x12, xx22], dim=1))
+        xx11 = self.conv_dec11(mindspore.cat([x12, xx22], dim=1))
         flow = self.conv_dec12(xx11)
 
         return flow 
-
-
-
-
-if __name__ == "__main__": 
-    model = MainNetWithSingleTF() 
-    X = torch.ones((2, 2, 64, 64, 64)) 
-    Y = model(X) 
-    print(Y.shape) 

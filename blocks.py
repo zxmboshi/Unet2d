@@ -1,11 +1,11 @@
-import torch
-import torch.nn as nn 
-import torch.nn.functional as F
+import mindspore
+import mindspore.nn as nn 
+import mindspore.nn.functional as F
 
 
 # shape_in: [batch_size, in_channels, vol_height, vol_width, vol_depth]
 # shape_out: [batch_size, out_channels, vol_height, vol_width, vol_depth]
-class ConvBlock(nn.Module):
+class ConvBlock(nn.Cell):
     def __init__(self, in_channels, out_channels, 
                  kernel_size=3, stride=1):
         super().__init__()
@@ -14,7 +14,7 @@ class ConvBlock(nn.Module):
         self.act = nn.ReLU(inplace=True)
         self.norm = nn.BatchNorm3d(out_channels)
     
-    def forward(self, x):
+    def construct(self, x):
         return self.norm(self.act(self.conv(x)))
 
 # src: source img or vol needed to transform
@@ -23,7 +23,7 @@ class ConvBlock(nn.Module):
 # flow: deformation field 
 # shape: [batch_size, 2, img_height, img_width] (2D)
 # or: [batch_size, 3, vol_height, vol_width, vol_depth] (3D)
-class SpatialTransformerBlock(nn.Module):
+class SpatialTransformerBlock(nn.Cell):
     """
     N-D Spatial Transformer N = 2,3
     """
@@ -32,15 +32,15 @@ class SpatialTransformerBlock(nn.Module):
         self.mode = mode
 
         # create sampling grid
-        vectors = [torch.arange(0, s) for s in size]
-        grids = torch.meshgrid(vectors)
-        grid = torch.stack(grids)
-        grid = torch.unsqueeze(grid, 0)
-        grid = grid.type(torch.FloatTensor)
+        vectors = [mindspore.arange(0, s) for s in size]
+        grids = mindspore.meshgrid(vectors)
+        grid = mindspore.stack(grids)
+        grid = mindspore.unsqueeze(grid, 0)
+        grid = grid.type(mindspore.FloatTensor)
 
         self.register_buffer('grid', grid)
 
-    def forward(self, src, flow):
+    def construct(self, src, flow):
         # new locations
         new_locs = self.grid + flow
         shape = flow.shape[2:]
@@ -62,7 +62,7 @@ class SpatialTransformerBlock(nn.Module):
         return F.grid_sample(src, new_locs, mode=self.mode)
 
 
-class TransformerBlock(nn.Module):
+class TransformerBlock(nn.Cell):
     def __init__(self, dim, patch_size=4, num_heads=4, mode='down'):
         super().__init__()
 
@@ -94,7 +94,7 @@ class TransformerBlock(nn.Module):
         if self.mode == 'up':
             self.conv_up = nn.ConvTranspose3d(dim, dim, 2, 2)
 
-    def forward(self, x):
+    def construct(self, x):
         B, C, H, W, D = x.shape
         N = int((H * W * D) // (self.patch_size ** 3))
 
@@ -131,7 +131,7 @@ class TransformerBlock(nn.Module):
         return y_same, y_opt
 
 
-class TransformerBlockSingle(nn.Module): 
+class TransformerBlockSingle(nn.Cell): 
     def __init__(self, dim, patch_size=4, num_heads=4):
         super().__init__()
         
@@ -155,7 +155,7 @@ class TransformerBlockSingle(nn.Module):
         # out conv 
         self.conv_out = nn.Conv3d(dim, dim, 3, 1, 1)
 
-    def forward(self, x):
+    def construct(self, x):
         B, C, H, W, D = x.shape
         N = int((H * W * D) // (self.patch_size ** 3))
 

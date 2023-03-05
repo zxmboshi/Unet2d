@@ -1,9 +1,9 @@
-import torch 
-import torch.nn as nn 
-import torch.nn.functional as F 
+import mindspore 
+import mindspore.nn as nn 
+import mindspore.nn.functional as F 
 
 
-class Gradient3D(nn.Module):
+class Gradient3D(nn.Cell):
     """
     Calculate Gradient Loss 
     Parameters:
@@ -19,23 +19,23 @@ class Gradient3D(nn.Module):
         super().__init__()
         self.penalty = penalty
 
-    def forward(self, flow):
+    def construct(self, flow):
         x = flow
 
-        dh = torch.abs(x[:, :, 1:, :, :] - x[:, :, :-1, :, :])
-        dw = torch.abs(x[:, :, :, 1:, :] - x[:, :, :, :-1, :])
-        dd = torch.abs(x[:, :, :, :, 1:] - x[:, :, :, :, :-1])
+        dh = mindspore.abs(x[:, :, 1:, :, :] - x[:, :, :-1, :, :])
+        dw = mindspore.abs(x[:, :, :, 1:, :] - x[:, :, :, :-1, :])
+        dd = mindspore.abs(x[:, :, :, :, 1:] - x[:, :, :, :, :-1])
 
         if self.penalty == 'l2':
             dh = dh ** 2 
             dw = dw ** 2 
             dd = dd ** 2 
             
-        loss = (torch.mean(dh) + torch.mean(dw) + torch.mean(dd)) / 3.0 
+        loss = (mindspore.mean(dh) + mindspore.mean(dw) + mindspore.mean(dd)) / 3.0 
         return loss 
 
 
-class CrossCorrelation3D(nn.Module):
+class CrossCorrelation3D(nn.Cell):
     """
     Calculate Local Normalized Cross Correlation Loss (LNCC)
     Parameters:
@@ -51,11 +51,11 @@ class CrossCorrelation3D(nn.Module):
     """
     def __init__(self, in_ch=1, kernel=(9, 9, 9)):
         super().__init__()
-        self.filt = torch.ones((1, in_ch, kernel[0], kernel[1], kernel[2])).cuda()
+        self.filt = mindspore.ones((1, in_ch, kernel[0], kernel[1], kernel[2])).cuda()
         self.padding = (int((kernel[0] - 1) / 2), int((kernel[1] - 1) / 2), int((kernel[2] - 1) / 2))
         self.k_sum = kernel[0] * kernel[1] * kernel[2]
  
-    def forward(self, y_true, y_pred):
+    def construct(self, y_true, y_pred):
         I = y_true 
         J = y_pred
 
@@ -80,4 +80,4 @@ class CrossCorrelation3D(nn.Module):
         bottom = I_var * J_var + 1e-5 
 
         loss = top / bottom
-        return -torch.mean(loss)
+        return -mindspore.mean(loss)
